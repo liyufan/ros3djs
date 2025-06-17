@@ -9,13 +9,28 @@
 <script src="../build/ros3d.js"></script>
 
 <script>
+  const SERVER_HOST = window.location.hostname;
+  const SERVER_PORT = 9090;
+  const SERVER_URL = `ws://${SERVER_HOST}:${SERVER_PORT}`;
+  const DEFAULT_FIXED_FRAME = 'lidar1';
+  const DEFAULT_TOPIC = '/livox/lidar1';
+
   /**
    * Setup all visualization elements when the page is loaded.
    */
   function init() {
+    // Clear the viewer div to ensure a fresh start.
+    // This is important to avoid stacking multiple viewers on top of each other.
+    var viewerDiv = document.getElementById('viewer');
+    if (viewerDiv) {
+      viewerDiv.innerHTML = '';
+    }
+    // Get the fixed frame and topic from the input fields or set defaults.
+    var fixedFrame = document.getElementById('fixedFrame') ? document.getElementById('fixedFrame').value : DEFAULT_FIXED_FRAME;
+    var topic = document.getElementById('topic') ? document.getElementById('topic').value : DEFAULT_TOPIC;
     // Connect to ROS.
     var ros = new ROSLIB.Ros({
-      url : 'ws://localhost:9090'
+      url : SERVER_URL
     });
 
     // Create the main viewer.
@@ -32,14 +47,14 @@
       angularThres : 0.01,
       transThres : 0.01,
       rate : 10.0,
-      fixedFrame : '/camera_link'
+      fixedFrame : fixedFrame
     });
 
     var cloudClient = new ROS3D.PointCloud2({
         ros: ros,
         tfClient: tfClient,
         rootObject: viewer.scene,
-        topic: '/camera/depth_registered/points',
+        topic: topic,
         material: { size: 0.05, color: 0xff00ff }
     });
   }
@@ -48,6 +63,21 @@
 
 <body onload="init()">
   <h1>Simple PointCloud2 Example</h1>
+  <p>Server IP: <tt id="ip"></tt></p>
+  <script>
+    // Display the server IP address.
+    document.getElementById('ip').innerText = SERVER_HOST;
+  </script>
+  <form onsubmit="init(); return false;">
+    <label>fixedFrame: <input type="text" id="fixedFrame"></label>
+    <label>topic: <input type="text" id="topic"></label>
+    <button type="submit">Apply</button>
+  </form>
+  <script>
+    // Set default values from constants
+    document.getElementById('fixedFrame').value = DEFAULT_FIXED_FRAME;
+    document.getElementById('topic').value = DEFAULT_TOPIC;
+  </script>
   <p>Run the following commands in the terminal then refresh the page.</p>
   <ol>
     <li><tt>roscore</tt></li>

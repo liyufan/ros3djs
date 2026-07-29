@@ -55,7 +55,10 @@
         tfClient: tfClient,
         rootObject: viewer.scene,
         topic: topic,
-        material: { size: 0.05, color: 0xff00ff }
+        max_pts: 25000,
+        colorsrc: 'intensity',
+        intensityRange: [0, 75],
+        material: { size: 0.05, color: 0xffffff }
     });
   }
 </script>

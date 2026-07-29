@@ -56362,8 +56362,9 @@ var ROS3D = (function (exports, ROSLIB) {
 	   *  * pointRatio (optional) - point subsampling ratio (default: 1, no subsampling)
 	   *  * messageRatio (optional) - message subsampling ratio (default: 1, no subsampling)
 	   *  * material (optional) - a material object or an option to construct a PointsMaterial.
-	   *  * colorsrc (optional) - the field to be used for coloring (default: 'rgb')
+	   *  * colorsrc (optional) - the field to be used for coloring (default: 'rgb', then 'intensity')
 	   *  * colormap (optional) - function that turns the colorsrc field value to a color
+	   *  * intensityRange (optional) - [minimum, maximum] intensity values for coloring (default: per-message range)
 	   */
 	  constructor(options) {
 	    super();
@@ -56377,6 +56378,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	    this.material = options.material || {};
 	    this.colorsrc = options.colorsrc;
 	    this.colormap = options.colormap;
+	    this.intensityRange = options.intensityRange;
 
 	    if(('color' in options) || ('size' in options) || ('texture' in options)) {
 	        console.warn(
@@ -56404,8 +56406,8 @@ var ROS3D = (function (exports, ROSLIB) {
 	          this.positions = new THREE.BufferAttribute( new Float32Array( this.max_pts * 3), 3, false );
 	          this.geom.addAttribute( 'position', this.positions.setDynamic(true) );
 
-	          if(!this.colorsrc && this.fields.rgb) {
-	              this.colorsrc = 'rgb';
+	          if(!this.colorsrc) {
+	              this.colorsrc = this.fields.rgb ? 'rgb' : (this.fields.intensity ? 'intensity' : undefined);
 	          }
 	          if(this.colorsrc) {
 	              var field = this.fields[this.colorsrc];
@@ -56423,6 +56425,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	                      function(dv,base,le){return dv.getFloat32(base+offset,le);},
 	                      function(dv,base,le){return dv.getFloat64(base+offset,le);}
 	                  ][field.datatype-1];
+	                  this.usesIntensityColormap = this.colorsrc === 'intensity' && !this.colormap;
 	                  this.colormap = this.colormap || function(x){return new THREE.Color(x);};
 	              } else {
 	                  console.warn('unavailable field "' + this.colorsrc + '" for coloring.');
@@ -56680,6 +56683,30 @@ var ROS3D = (function (exports, ROSLIB) {
 	decode64.e={};
 	for(var i=0;i<64;i++){decode64.e[decode64.S.charAt(i)]=i;}
 
+	function getRvizIntensityColor(value) {
+	  value = Math.max(0, Math.min(1, value));
+	  var hue = value * 5 + 1;
+	  var segment = Math.floor(hue);
+	  var fraction = hue - segment;
+	  if(!(segment & 1)) {
+	    fraction = 1 - fraction;
+	  }
+	  var inverseFraction = 1 - fraction;
+	  if(segment <= 1) {
+	    return new THREE.Color(inverseFraction, 0, 1);
+	  }
+	  if(segment === 2) {
+	    return new THREE.Color(0, inverseFraction, 1);
+	  }
+	  if(segment === 3) {
+	    return new THREE.Color(0, 1, inverseFraction);
+	  }
+	  if(segment === 4) {
+	    return new THREE.Color(inverseFraction, 1, 0);
+	  }
+	  return new THREE.Color(1, inverseFraction, 0);
+	}
+
 
 	class PointCloud2 extends THREE.Object3D {
 
@@ -56698,8 +56725,9 @@ var ROS3D = (function (exports, ROSLIB) {
 	   *  * pointRatio (optional) - point subsampling ratio (default: 1, no subsampling)
 	   *  * messageRatio (optional) - message subsampling ratio (default: 1, no subsampling)
 	   *  * material (optional) - a material object or an option to construct a PointsMaterial.
-	   *  * colorsrc (optional) - the field to be used for coloring (default: 'rgb')
+	   *  * colorsrc (optional) - the field to be used for coloring (default: 'rgb', then 'intensity')
 	   *  * colormap (optional) - function that turns the colorsrc field value to a color
+	   *  * intensityRange (optional) - [minimum, maximum] intensity values for coloring (default: per-message range)
 	   */
 	  constructor(options) {
 	    super();
@@ -56763,7 +56791,24 @@ var ROS3D = (function (exports, ROSLIB) {
 	    var x = this.points.fields.x.offset;
 	    var y = this.points.fields.y.offset;
 	    var z = this.points.fields.z.offset;
-	    var base, color;
+	    var base, color, intensity, intensityMin, intensityMax;
+	    if(this.points.usesIntensityColormap) {
+	      if(this.points.intensityRange && this.points.intensityRange.length === 2) {
+	        intensityMin = this.points.intensityRange[0];
+	        intensityMax = this.points.intensityRange[1];
+	      } else {
+	        intensityMin = Infinity;
+	        intensityMax = -Infinity;
+	        for(i = 0; i < n; i++) {
+	          base = i * pointRatio * msg.point_step;
+	          intensity = this.points.getColor(dv, base, littleEndian);
+	          if(isFinite(intensity)) {
+	            intensityMin = Math.min(intensityMin, intensity);
+	            intensityMax = Math.max(intensityMax, intensity);
+	          }
+	        }
+	      }
+	    }
 	    for(var i = 0; i < n; i++){
 	      base = i * pointRatio * msg.point_step;
 	      this.points.positions.array[3*i    ] = dv.getFloat32(base+x, littleEndian);
@@ -56771,7 +56816,13 @@ var ROS3D = (function (exports, ROSLIB) {
 	      this.points.positions.array[3*i + 2] = dv.getFloat32(base+z, littleEndian);
 
 	      if(this.points.colors){
-	          color = this.points.colormap(this.points.getColor(dv,base,littleEndian));
+	          intensity = this.points.getColor(dv,base,littleEndian);
+	          if(this.points.usesIntensityColormap) {
+	            intensity = intensityMax > intensityMin ? (intensity - intensityMin) / (intensityMax - intensityMin) : 0;
+	            color = getRvizIntensityColor(intensity);
+	          } else {
+	            color = this.points.colormap(intensity);
+	          }
 	          this.points.colors.array[3*i    ] = color.r;
 	          this.points.colors.array[3*i + 1] = color.g;
 	          this.points.colors.array[3*i + 2] = color.b;

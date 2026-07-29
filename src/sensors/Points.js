@@ -16,8 +16,9 @@
  *  * pointRatio (optional) - point subsampling ratio (default: 1, no subsampling)
  *  * messageRatio (optional) - message subsampling ratio (default: 1, no subsampling)
  *  * material (optional) - a material object or an option to construct a PointsMaterial.
- *  * colorsrc (optional) - the field to be used for coloring (default: 'rgb')
+ *  * colorsrc (optional) - the field to be used for coloring (default: 'rgb', then 'intensity')
  *  * colormap (optional) - function that turns the colorsrc field value to a color
+ *  * intensityRange (optional) - [minimum, maximum] intensity values for coloring (default: per-message range)
  */
 ROS3D.Points = function(options) {
   THREE.Object3D.call(this);
@@ -31,6 +32,7 @@ ROS3D.Points = function(options) {
   this.material = options.material || {};
   this.colorsrc = options.colorsrc;
   this.colormap = options.colormap;
+  this.intensityRange = options.intensityRange;
 
   if(('color' in options) || ('size' in options) || ('texture' in options)) {
       console.warn(
@@ -59,8 +61,8 @@ ROS3D.Points.prototype.setup = function(frame, point_step, fields)
         this.positions = new THREE.BufferAttribute( new Float32Array( this.max_pts * 3), 3, false );
         this.geom.addAttribute( 'position', this.positions.setDynamic(true) );
 
-        if(!this.colorsrc && this.fields.rgb) {
-            this.colorsrc = 'rgb';
+        if(!this.colorsrc) {
+            this.colorsrc = this.fields.rgb ? 'rgb' : (this.fields.intensity ? 'intensity' : undefined);
         }
         if(this.colorsrc) {
             var field = this.fields[this.colorsrc];
@@ -78,6 +80,7 @@ ROS3D.Points.prototype.setup = function(frame, point_step, fields)
                     function(dv,base,le){return dv.getFloat32(base+offset,le);},
                     function(dv,base,le){return dv.getFloat64(base+offset,le);}
                 ][field.datatype-1];
+                this.usesIntensityColormap = this.colorsrc === 'intensity' && !this.colormap;
                 this.colormap = this.colormap || function(x){return new THREE.Color(x);};
             } else {
                 console.warn('unavailable field "' + this.colorsrc + '" for coloring.');

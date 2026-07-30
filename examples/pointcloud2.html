@@ -8,9 +8,23 @@
 <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.js"></script>
 <script src="../build/ros3d.js"></script>
 
+<style>
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  #viewer {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+
 <script>
   const SERVER_HOST = window.location.hostname;
-  const SERVER_PORT = 9090;
+  const SERVER_PORT = 9000;
   const SERVER_URL = `ws://${SERVER_HOST}:${SERVER_PORT}`;
   const DEFAULT_FIXED_FRAME = '/livox_frame';
   const DEFAULT_TOPIC = '/livox/lidar';
@@ -36,8 +50,8 @@
     // Create the main viewer.
     var viewer = new ROS3D.Viewer({
       divID : 'viewer',
-      width : 800,
-      height : 600,
+      width : viewerDiv.clientWidth,
+      height : viewerDiv.clientHeight,
       antialias : true
     });
 
@@ -65,29 +79,6 @@
 </head>
 
 <body onload="init()">
-  <h1>Simple PointCloud2 Example</h1>
-  <p>Server IP: <tt id="ip"></tt></p>
-  <script>
-    // Display the server IP address.
-    document.getElementById('ip').innerText = SERVER_HOST;
-  </script>
-  <form onsubmit="init(); return false;">
-    <label>fixedFrame: <input type="text" id="fixedFrame"></label>
-    <label>topic: <input type="text" id="topic"></label>
-    <button type="submit">Apply</button>
-  </form>
-  <script>
-    // Set default values from constants
-    document.getElementById('fixedFrame').value = DEFAULT_FIXED_FRAME;
-    document.getElementById('topic').value = DEFAULT_TOPIC;
-  </script>
-  <p>Run the following commands in the terminal then refresh the page.</p>
-  <ol>
-    <li><tt>roscore</tt></li>
-    <li><tt>roslaunch rosbridge_server rosbridge_websocket.launch</tt></li>
-    <li><tt>rosrun tf2_web_republisher tf2_web_republisher</tt></li>
-    <li><tt>roslaunch openni_launch openni.launch depth_registration:=true</tt></li>
-  </ol>
   <div id="viewer"></div>
 </body>
 </html>

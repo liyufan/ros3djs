@@ -27,7 +27,7 @@
   const WS_PORT = 9090;
   const WS_URL = `ws://${WS_HOST}:${WS_PORT}`;
   const DEFAULT_FIXED_FRAME = 'livox_frame';
-  const DEFAULT_TOPIC = '/livox/lidar';
+  const DEFAULT_TOPIC = '/livox/lidar_accumulated';
 
   /**
    * Setup all visualization elements when the page is loaded.
@@ -69,6 +69,7 @@
         tfClient: tfClient,
         rootObject: viewer.scene,
         topic: topic,
+        throttle_rate: 500,
         max_pts: 25000,
         colorsrc: 'intensity',
         intensityRange: [0, 75],

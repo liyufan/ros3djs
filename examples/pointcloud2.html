@@ -25,7 +25,9 @@
 <script>
   const WS_HOST = window.location.hostname;
   const WS_PORT = 9090;
-  const WS_URL = `ws://${WS_HOST}:${WS_PORT}`;
+  const WS_URL = window.location.protocol === 'https:'
+    ? `wss://${WS_HOST}/ws1`
+    : `ws://${WS_HOST}:${WS_PORT}`;
   const DEFAULT_FIXED_FRAME = 'livox_frame';
   const DEFAULT_TOPIC = '/livox/lidar_accumulated';
 
